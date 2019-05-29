@@ -14,18 +14,34 @@
 #define TRUE 1
 #define FALSE 0
 #define PORT 8080
+#define MAX_USERS 30
 
 int main(int argc , char *argv[]){
 
 int max_clients = 30;
 int server_socket, client_sock[max_clients], new_socket;
-int addrlen,i,j,opt=TRUE;
+int addrlen,i,j,y,opt=TRUE;
 int valread,max_sd,sd;
 int activity;
 struct sockaddr_in address_server;
 char send_buffer[1024]= {0};
 char read_buffer[1024] = {0};
-char message[1024] = {0};
+char message[1024] = {};
+
+typedef struct user
+{
+    char username[10];
+    char password[50];
+};
+struct user users[MAX_USERS];
+int users_reg_now=0;
+
+//empty array
+for (i=0; i<MAX_USERS; i++){
+    strcpy(users[i].username,"0");
+    strcpy(users[i].password,"0");
+}
+
 
 //set of socket descriptors
 fd_set readfds;
@@ -154,17 +170,61 @@ while (TRUE)
             }
             else //sending back the message that came in 
             {
-                char name;
-                sprintf(name, "%d", sd);
-                strcat(message,name);
-                strcat(message,":");
-                strcat(message,read_buffer);
-                
+                char delim[] = "/";
+           	    char *ptr = strtok(read_buffer, delim);
+                int a=0;
+                if(!strcmp(ptr,"reg")){
+                    //registration
+                    if(users_reg_now == 30){
+                        printf("Sorry There is not enough space in the chat.Bye\n");
+                        close(sd);
+                        client_sock[i] = 0;
+                    }else
+                    {
+                        for(y=0; y<MAX_USERS; y++){
+                            if(!strcmp(users[y].username,"0")){
+                                break;
+                            }
+                        }
+                        while(ptr != NULL)
+                        {
+                            if(a==1){
+                                //username
+                                strcpy(users[y].username,ptr);
+                            }
+                            else if(a==2)
+                            {
+                                //password
+                                strcpy(users[y].password,ptr);
+
+                                printf("New user %s with password %s\n",users[y].username,users[y].password);
+                            }
+                            else if(a==0){
+
+                            }
+                            else
+                            {
+                                perror("Wrong registry info");
+                                exit(EXIT_FAILURE);
+                            }
+                            
+                            
+                            printf("'%s'\n", ptr);
+                            ptr = strtok(NULL, delim);
+                            a++;
+                        }  
+                    } 
+	                
+                }
+
                 for(j=0; j<max_clients; j++){
                     if(client_sock[j] != 0){
-                        printf("to %d: %s \n",j,message);
-
-                        send(client_sock[j], message, strlen(message), 0); 
+                        printf("sender %d , receiver %d \n",sd,client_sock[j]);
+                        if(client_sock[j] != sd){
+                            snprintf(message,sizeof(message),"%d%s%s",sd, " > ",read_buffer);
+                            printf("Sending to user %d --> %s \n",j,message);
+                            send(client_sock[j], message, strlen(message), 0); 
+                        }
                         
                     }
                 }
