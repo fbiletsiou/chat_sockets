@@ -27,19 +27,27 @@ struct sockaddr_in address_server;
 char send_buffer[1024]= {0};
 char read_buffer[1024] = {0};
 char message[1024] = {};
+int flag_no_message = FALSE;
+int flag_logged = FALSE;
+char log_username[10];
 
 typedef struct user
 {
     char username[10];
     char password[50];
-};
+    int id;
+    int logged;
+}u;
 struct user users[MAX_USERS];
 int users_reg_now=0;
+int users_log_now=0;
+char log_err[3]={};
 
 //empty array
 for (i=0; i<MAX_USERS; i++){
     strcpy(users[i].username,"0");
     strcpy(users[i].password,"0");
+    users[i].logged=-1;
 }
 
 
@@ -164,6 +172,13 @@ while (TRUE)
                 getpeername(sd,(struct sockaddr*)&address_server, (socklen_t*)&addrlen);
                 printf("Client disconnected , %s:%d\n",inet_ntoa(address_server.sin_addr), ntohs(address_server.sin_port));
 
+                users_log_now--;
+                for(y=0; y<MAX_USERS; y++){
+                    if(users[y].id == sd){
+                        //log out
+                        users[y].logged = -1;
+                    }
+                }
                 //Closing the socket and mark it as 0 for reuse
                 close(sd);
                 client_sock[i] = 0;
@@ -180,8 +195,8 @@ while (TRUE)
                         close(sd);
                         client_sock[i] = 0;
                     }else
-                    {
-                        for(y=0; y<MAX_USERS; y++){
+                    { // there is space
+                        for(y=0; y<MAX_USERS; y++){ //finding available space in the array
                             if(!strcmp(users[y].username,"0")){
                                 break;
                             }
@@ -196,40 +211,102 @@ while (TRUE)
                             {
                                 //password
                                 strcpy(users[y].password,ptr);
-
-                                printf("New user %s with password %s\n",users[y].username,users[y].password);
+                                users[y].id = sd;
+                                printf("New user %s with id %d and password %s\n",users[y].username,users[y].id,users[y].password);
+                                break;
                             }
                             else if(a==0){
-
+                                //thats already done
                             }
                             else
                             {
                                 perror("Wrong registry info");
                                 exit(EXIT_FAILURE);
                             }
-                            
-                            
-                            printf("'%s'\n", ptr);
                             ptr = strtok(NULL, delim);
                             a++;
                         }  
+                        users_reg_now++;
+                        send(sd, "2", strlen("2"), 0); 
+                        flag_no_message = TRUE;
                     } 
 	                
                 }
-
-                for(j=0; j<max_clients; j++){
-                    if(client_sock[j] != 0){
-                        printf("sender %d , receiver %d \n",sd,client_sock[j]);
-                        if(client_sock[j] != sd){
-                            snprintf(message,sizeof(message),"%d%s%s",sd, " > ",read_buffer);
-                            printf("Sending to user %d --> %s \n",j,message);
-                            send(client_sock[j], message, strlen(message), 0); 
+                else if(!strcmp(ptr,"log")){
+                    //Logging in 
+                    while(ptr != NULL){
+                        if(a==1){
+                            //username
+                            for(y=0; y<MAX_USERS; y++){
+                                if(!strcmp(ptr, users[y].username)){
+                                    strcpy(log_username,ptr);
+                                    break;
+                                }
+                            }
+                            if(y>=MAX_USERS){
+                                //The user is not registered
+                                flag_logged=FALSE;
+                                strcpy(log_err,"WN"); //WRONG NAME
+                                break;
+                            }
+                        }
+                        else if(a==2){
+                            //password
+                            printf("Username %s, pass %s \n",log_username,ptr);
+                            for(y=0; y<MAX_USERS; y++){
+                                if(!strcmp(users[y].password,ptr) && !strcmp(users[y].username,log_username)){
+                                    printf("ARIBA\n");
+                                    flag_logged =TRUE;
+                                    flag_no_message=TRUE;
+                                    users[y].logged=1;
+                                    break;
+                                }
+                            }
+                            if(flag_logged==FALSE){
+                                strcpy(log_err,"WP"); //WRONG PASSWORD
+                            }
+                        }
+                        else if(a==0){
+                            //thats already done
+                        }
+                        else
+                        {
+                            perror("Wrong registry info");
+                            exit(EXIT_FAILURE);
                         }
                         
+                        ptr = strtok(NULL, delim);
+                        a++;
+                    }  
+                    if(flag_logged){ //the user successfully logged in 
+                        users_log_now++;
+                        send(sd, "3", strlen("3"), 0);    
+                    }
+                    else{
+                        send(sd, log_err, strlen(log_err), 0);    
                     }
                 }
-                memset(read_buffer,0,sizeof(read_buffer));
-                memset(message,0,sizeof(message));
+
+                if(flag_no_message){ 
+                    printf("[+] Auth for %d Done\n",sd);
+                    flag_no_message=FALSE;
+                }
+                else{ //Simple message
+                    for(j=0; j<max_clients; j++){
+                        if(client_sock[j] != 0){
+                            printf("sender %d , receiver %d \n",sd,client_sock[j]);
+                            if(client_sock[j] != sd){
+                                snprintf(message,sizeof(message),"%d%s%s",sd, " > ",read_buffer);
+                                printf("Sending to user %d --> %s \n",j,message);
+                                send(client_sock[j], message, strlen(message), 0); 
+                            }
+                            
+                        }
+                    }
+                    memset(read_buffer,0,sizeof(read_buffer));
+                    memset(message,0,sizeof(message));                    
+                }
+
 
                
               

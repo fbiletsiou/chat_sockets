@@ -83,6 +83,15 @@ int main(int argc, char const *argv[]){
             scanf("%d",&log_reg);
             fflush(stdout);
             fflush(stdin);
+            if(log_reg == 1 || log_reg ==2){
+                break;
+            }
+            else{
+                printf("You need to enter 1 or 2 , try agian please \n");
+                continue;
+            }
+        }
+        while(1){
             if(log_reg == 1){
 
                 //Register
@@ -97,6 +106,31 @@ int main(int argc, char const *argv[]){
                 snprintf(auth,sizeof(auth), "%s/%s/%s","reg",username,crypt(password,username));
                 //printf("Auth is %s\n",auth);
                 send(client_socket, &auth,strlen(auth),0);
+                //visual simulation of registration
+                printf("\tRegistring.");
+                sleep(2);
+                printf("..");
+                sleep(2);
+                printf(".");
+                sleep(2);
+                printf("..\n");
+                sleep(2);
+                //Waiting for server answer
+                if(read(client_socket, read_buffer, 1024) > 0){
+                    if (!(strcmp(read_buffer, "2")))
+                    {
+                        printf("You successfully registered. You have to log in now and you are ready to go!\n");
+                        log_reg=2;
+                        continue;
+                    }
+                    else
+                    {
+                        printf("Opps, there was some error with your registration, please try again");
+                        continue;
+                    }
+                    memset(auth,0,sizeof(auth));
+                    memset(read_buffer,0,sizeof(read_buffer));
+                } 
             }
             else if(log_reg == 2){
                 //Log in 
@@ -107,13 +141,41 @@ int main(int argc, char const *argv[]){
                 printf("\n Password: ");
                 scanf("%s",password);
                 fflush(stdout);
+
+                snprintf(auth,sizeof(auth), "%s/%s/%s","log",username,crypt(password,username));
+                //printf("Auth is %s\n",auth);
+                send(client_socket, &auth,strlen(auth),0);
+                //visual simulation of registration
+                printf("\tLogging.");
+                sleep(2);
+                printf("..");
+                sleep(2);
+                printf(".");
+                sleep(2);
+                printf("..\n");
+                sleep(2);
+                //Waiting for server answer
+                if(read(client_socket, read_buffer, 1024) > 0){
+                    if (!(strcmp(read_buffer, "3")))
+                    {
+                        printf("Logged in!\n");
+                        break;
+                    }
+                    else if(!strcmp(read_buffer,"WN"))
+                    {
+                        printf("Opps, it seems that this username is wrong, please try again");
+                        continue;
+                    }
+                    else if(!strcmp(read_buffer,"WP")){
+                        printf("Opps, it seems that this combination of username and password is wrong, please try again");
+                        continue;
+                    }
+                    memset(auth,0,sizeof(auth));
+                    memset(read_buffer,0,sizeof(read_buffer));
+                } 
             }
-            else
-            {
-                printf("You need to enter 1 or 2 , try agian please \n");
-                continue;
-            }
-            printf("Username %s, Pass %s \n",username,password);
+           
+            //printf("Username %s, Pass %s \n",username,password);
         }
         
         
