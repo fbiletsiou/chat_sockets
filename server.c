@@ -19,9 +19,8 @@
 
 int main(int argc , char *argv[]){
 
-int max_clients = 30;
-int server_socket, client_sock[max_clients], new_socket;
-int addrlen,i,j,y,opt=TRUE;
+int server_socket, client_sock[MAX_USERS], new_socket;
+int addrlen,i,j,y,k,l,opt=TRUE;
 int valread,max_sd,sd;
 int activity;
 struct sockaddr_in address_server;
@@ -31,6 +30,8 @@ char message[1024] = {};
 int flag_no_message = FALSE;
 int flag_logged = FALSE;
 char log_username[10];
+int num_of_groups=0;
+int group_found =FALSE;
 
 typedef struct group
 {
@@ -75,7 +76,7 @@ for (i=0; i<MAX_USERS; i++){
     strcpy(users[i].username,"0");
     strcpy(users[i].password,"0");
     users[i].logged=-1;
-    users[i].current_group = users[i].my_groups[0];
+    users[i].current_group = groups[0].id;
 }
 
 
@@ -85,7 +86,7 @@ fd_set readfds;
 puts("Starting...\n");
 
 //Initializing all the client socket to 0 
-for(i=0; i<max_clients; i++){
+for(i=0; i<MAX_USERS; i++){
     client_sock[i] = 0;
 }
 printf("[+] Client sockets init done\n");
@@ -146,7 +147,7 @@ while (TRUE)
     max_sd = server_socket;
 
     //Adding the client socket to the set
-    for(i=0; i<max_clients; i++){
+    for(i=0; i<MAX_USERS; i++){
         //socket descriptor
         sd = client_sock[i];
 
@@ -179,7 +180,7 @@ while (TRUE)
         }
 
         //Adding the new socket to array of sockets
-        for(i=0; i<max_clients; i++){
+        for(i=0; i<MAX_USERS; i++){
             //if empty
             if(client_sock[i] == 0){
                 client_sock[i] = new_socket;
@@ -190,7 +191,7 @@ while (TRUE)
     }
 
     //else is some IO operation on some other socket
-    for(i=0; i<max_clients; i++){
+    for(i=0; i<MAX_USERS; i++){
         sd = client_sock[i];
 
         if(FD_ISSET(sd , &readfds)){
@@ -216,6 +217,7 @@ while (TRUE)
                 char delim[] = "/";
            	    char *ptr = strtok(read_buffer, delim);
                 int a=0;
+                printf("PTR IS %s\n",ptr);
                 if(!strcmp(ptr,"reg")){
                     //registration
                     if(users_reg_now == 30){
@@ -241,7 +243,7 @@ while (TRUE)
                                 strcpy(users[y].password,ptr);
                                 users[y].id = sd;
                                 users[y].my_groups[0]= groups[0].id; //Everyone is in the general group
-                                for(int k=0; k<MAX_USERS; k++){
+                                for(k=0; k<MAX_USERS; k++){
                                     if (groups[0].users[k] == -1)
                                     {
                                         groups[0].users[k] = users[y].id;
@@ -266,11 +268,14 @@ while (TRUE)
                         users_reg_now++;
                         send(sd, "2", strlen("2"), 0); 
                         flag_no_message = TRUE;
+                        memset(read_buffer,0,sizeof(read_buffer));
+
                     } 
 	                
                 }
                 else if(!strcmp(ptr,"log")){
                     //Logging in 
+                    a=0;
                     while(ptr != NULL){
                         if(a==1){
                             //username
@@ -307,8 +312,7 @@ while (TRUE)
                         }
                         else
                         {
-                            perror("Wrong registry info");
-                            exit(EXIT_FAILURE);
+                            break;
                         }
                         
                         ptr = strtok(NULL, delim);
@@ -324,89 +328,154 @@ while (TRUE)
                         send(sd, log_err, strlen(log_err), 0);
                         flag_no_message=TRUE;    
                     }
-                    
+                    memset(log_username,0,sizeof(log_username));
+                    memset(read_buffer,0,sizeof(read_buffer));
+
 
                 }
                 else if (!strcmp(ptr,"whoisthere"))
                 { //Who is online
                     for(y=0; y<MAX_USERS; y++){
                         if(users[y].logged == 1){
-                            send(sd,users[y].username, strlen(users[y].username),0);
+                            snprintf(send_buffer,sizeof(send_buffer),"%s%s", users[y].username,"\n");
+                            send(sd,send_buffer, strlen(send_buffer),0);
+                            memset(send_buffer,0,sizeof(send_buffer));
                         }
                     }
                     flag_no_message=TRUE;
+                    memset(read_buffer,0,sizeof(read_buffer));
+
                 }
                 else if (!strcmp(ptr, "groups"))
                 {
-                    for (y=0; y<MAX_USERS; y++)
-                    {
-                        if(users[y].id == sd){ //Finding the user                            
-                            break;
-                        }
-                    }
-                    for(int k=0; k<MAX_GROUPS; k++){ //finding the groups
-                        for(int l=0; l<MAX_GROUPS; l++){//finding the name of the group
-                            if (users[y].my_groups[k] == groups[l].id)
-                            {
-                                send(sd,groups[l].name,strlen(groups[l].name),0);
-                            }
+                    for(int y=0; y<MAX_GROUPS; y++){ //finding the groups
+                        if(groups[y].id != -1){
+                            snprintf(send_buffer,sizeof(send_buffer),"%s%s",groups[y].name,"\n");
+                            send(sd,send_buffer,strlen(send_buffer),0);
                         }
                     }
 
-                    flag_no_message=TRUE;  
+                    flag_no_message=TRUE;
+                    memset(read_buffer,0,sizeof(read_buffer));
+                    memset(send_buffer,0,sizeof(send_buffer));
+
                 }
-                else if (!strcmp(ptr, "new/"))
+                else if (!strcmp(ptr, "new"))
                 {
-                    for (y=1; y<MAX_GROUPS; y++)
-                    {
-                        if(groups[y].id != -1){
-                            break; //Available space for new group
-                        }
-                    }
-                    if(y >= MAX_GROUPS){
+                    if(num_of_groups > MAX_GROUPS){
                         //No space
                         send(sd, "NS", strlen("NS"),0);
                         printf("[-] Not enough space for more groups\n");
-                    }
+                    }                    
+
+
                     else
                     {
                         while (ptr != NULL)
                         {
-                            groups[y].id = y;
-                            strcpy(groups[y].name,ptr);
-                            groups[y].group_admin= sd;
-                            groups[y].users[0] = groups[y].group_admin;
-                            for(int k=1; k<MAX_USERS; k++){
-                                groups[y].users[k] = -1;
+                            if(a==1){
+                                //printf("[DEBUG] new group %s\n",ptr);
+                                for (y=1; y<MAX_GROUPS; y++){
+                                    if(groups[y].id == -1){
+                                        groups[y].id = y;
+                                        strcpy(groups[y].name,ptr);
+                                        groups[y].group_admin= sd;
+                                        groups[y].users[0] = groups[y].group_admin; //first user is always the admin
+                                        for(k=1; k<MAX_USERS; k++){
+                                            groups[y].users[k] = -1; //rest is empty so far
+                                        }
+                                        num_of_groups++;
+                                        break;
+                                    }
+                                }
+                                 
                             }
-
+                            else if (a>1) {
+                                break;
+                            }
+                            
                             ptr = strtok(NULL, delim);
+                            a++;
+                        }
+                        printf("[+] New group with id %d and name %s by %d\n",groups[y].id,groups[y].name,groups[y].group_admin); 
+                        send(sd,"NG", strlen("NG"),0);
+                        flag_no_message=TRUE;
+                    }
+                    memset(read_buffer,0,sizeof(read_buffer));
+                    
+                }
+                else if (!strcmp(ptr, "change"))
+                {
+                    while (ptr != NULL)
+                    {
+                        if(a==1){
+                            printf("[DEBUG] MOving to group %s\n",ptr);
+                            for (y=0; y<MAX_GROUPS; y++){
+                                if(!strcmp(groups[y].name,ptr)){ //Finding the wanted group
+                                    group_found=TRUE;
+                                    break;
+                                }
+                            }
+                            if(group_found){
+                                for(k=0; k<MAX_USERS; k++){
+                                    if(users[k].id == sd){
+                                        users[k].current_group = groups[y].id;
+                                        break;
+                                    }
+                                }    
+                            }
+     
+                            }
+                            else if (a>1) {
+                                break;
+                            }
+                            
+                            ptr = strtok(NULL, delim);
+                            a++;
+                        }
+                        if(group_found){
+                            send(sd,"MO", strlen("MO"),0);
+                            group_found=FALSE;  
+                        }
+                        else if(!group_found){
+                            send(sd,"NF", strlen("NF"),0);
                         }
                         
-                    }
+                        flag_no_message=TRUE;
+                    
+                    memset(read_buffer,0,sizeof(read_buffer));
+                    
                 }
-                
                 
                 
 
                 if(flag_no_message){ 
-                    printf("[+] Authentication for %d Done\n",sd);
                     flag_no_message=FALSE;
                 }
                 else{ //Simple message
-                    for(j=0; j<max_clients; j++){
+                    for(j=0; j<MAX_USERS; j++){
                         if(client_sock[j] != 0){
                             printf("sender %d , receiver %d \n",sd,client_sock[j]);
                             if(client_sock[j] != sd){
                                 //finding the name of the sender
                                 for(y=0; y<MAX_USERS; y++){
-                                    if(users[y].id == sd){
+                                    if(users[y].id == sd){ //SENDER id , group
+                                        for(k=0; k<MAX_GROUPS; k++){
+                                            if(users[y].current_group == groups[k].id)
+                                                break;
+                                        }
                                         break;
                                     }
                                 }
-                                snprintf(message,sizeof(message),"%s%s%s",users[y].username, " > ",read_buffer);
-                                printf("Sending to user %d --> %s \n",j,message);
-                                send(client_sock[j], message, strlen(message), 0); 
+                                for(l=0; l<MAX_USERS;l++){
+                                    if(users[l].id == client_sock[j]) //RECEIVER id
+                                        break;
+                                }
+                                if(users[l].current_group == users[y].current_group){
+                                    snprintf(message,sizeof(message),"||%s||%s%s%s",groups[k].name,users[y].username, " > ",read_buffer);
+                                    printf("Sending to user %d --> %s \n",j,message);
+                                    send(client_sock[j], message, strlen(message), 0);    
+                                }
                             }
                             
                         }

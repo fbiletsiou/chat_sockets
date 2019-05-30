@@ -25,8 +25,25 @@ void *readFromServer(void *arg){
     while (1)
     {
         if(valread= read(client_socket, read_buffer, 1024) > 0){
-            printf("%s\n", read_buffer);
-            memset(read_buffer,0,sizeof(read_buffer));
+            if(!strcmp(read_buffer,"NG")){
+                printf("New group added\n");
+            }
+            else if(!strcmp(read_buffer,"NS")){
+                printf("[-] Not enough space for new groups\n");
+            }
+            else if(!strcmp(read_buffer,"MO")){
+                printf("[+] Changed Group\n");
+            }
+            else if(!strcmp(read_buffer,"NF")){
+                printf("[-] Group not found\n");
+            }
+            else
+            {
+                printf("%s\n", read_buffer);
+            }
+            memset(read_buffer,0,sizeof(read_buffer)); 
+            
+
         }  
     }
 }
@@ -45,6 +62,7 @@ int main(int argc, char const *argv[]){
     char username[10], password[50];
     char auth[100];
     char new_group_name[20] = {0};
+    char moving_group_name[20]= {0};
 
     //Creating a file descriptor for the socket
     client_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -84,7 +102,7 @@ int main(int argc, char const *argv[]){
         printf("\t'groups/' to display the availabe groups\n");
         printf("\t'new/' to create a new group\n");
         printf("\t'change/' to change group\n");
-        printf("\t'change/@username/' if you want to start a private chat with someone\n ");
+        printf("\t'private/@username/' if you want to start a private chat with someone\n ");
         printf("\t'delgroup/@groupname' if you are the admin of the group and you want to delete it\n\n");
 
         //REGISTRATION 
@@ -155,33 +173,32 @@ int main(int argc, char const *argv[]){
                 snprintf(auth,sizeof(auth), "%s/%s/%s","log",username,crypt(password,username));
                 //printf("Auth is %s\n",auth);
                 send(client_socket, &auth,strlen(auth),0);
-                //visual simulation of registration
-                printf("\tLogging.");
+                printf("\tLogging....\n");
                 sleep(2);
-                printf("..");
-                sleep(2);
-                printf(".");
-                sleep(2);
-                printf("..\n");
-                sleep(2);
+
                 //Waiting for server answer
                 if(read(client_socket, read_buffer, 1024) > 0){
                     if (!(strcmp(read_buffer, "3")))
                     {
                         printf("Logged in!\n");
+                        memset(auth,0,sizeof(auth));
+                        memset(read_buffer,0,sizeof(read_buffer));
                         break;
                     }
                     else if(!strcmp(read_buffer,"WN"))
                     {
                         printf("Opps, it seems that this username is wrong, please try again");
+                        memset(auth,0,sizeof(auth));
+                        memset(read_buffer,0,sizeof(read_buffer));
                         continue;
                     }
                     else if(!strcmp(read_buffer,"WP")){
                         printf("Opps, it seems that this combination of username and password is wrong, please try again");
+                        memset(auth,0,sizeof(auth));
+                        memset(read_buffer,0,sizeof(read_buffer));
                         continue;
                     }
-                    memset(auth,0,sizeof(auth));
-                    memset(read_buffer,0,sizeof(read_buffer));
+
                 } 
             }
            
@@ -198,20 +215,35 @@ int main(int argc, char const *argv[]){
         
     while (1)
     {
+        fflush(stdin);
         fgets(send_buffer,1024,stdin);
         fflush(stdin);
-        if(!strcmp(send_buffer,"new/")){
+        fflush(stdout);
+        send_buffer[strcspn(send_buffer, "\n")]=0;
+        
+
+        if(strcmp(send_buffer,"new/") == 0){
             printf("--CREATION OF GROUP--\n");
             printf("Name of the group:");
             fgets(new_group_name,20,stdin);
+            new_group_name[strcspn(new_group_name, "\n")]=0;
             fflush(stdin);
-            sprintf(read_buffer,sizeof(read_buffer), "%s/%s/",read_buffer,new_group_name);
+            snprintf(send_buffer,sizeof(send_buffer), "%s/%s/","new",new_group_name);
+            memset(new_group_name,0,sizeof(new_group_name));
+        }
+        else if(strcmp(send_buffer,"change/")==0){
+            printf("--CHANGE OF GROUP--\n");
+            printf("Moving to:");
+            fgets(moving_group_name,20,stdin);
+            moving_group_name[strcspn(moving_group_name, "\n")]=0;
+            fflush(stdin);
+            snprintf(send_buffer,sizeof(send_buffer), "%s/%s/","change",moving_group_name);
+            memset(moving_group_name,0,sizeof(moving_group_name));
         }
 
         send(client_socket, &send_buffer,strlen(send_buffer),0);
         fflush(stdin);
         memset(send_buffer,0,sizeof(send_buffer));
-
 
     }
 
