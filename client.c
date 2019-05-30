@@ -44,6 +44,7 @@ int main(int argc, char const *argv[]){
     pthread_t r_thread; 
     char username[10], password[50];
     char auth[100];
+    char new_group_name[20] = {0};
 
     //Creating a file descriptor for the socket
     client_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -76,6 +77,16 @@ int main(int argc, char const *argv[]){
     }else
     {
         printf("[+] Connection with the server successful \n");
+        //INSTRUCTIONS
+        printf("List of available actions:\n");
+        printf("\t'Ctrl + C' to exit the chat \n");
+        printf("\t'whoisthere/' to see the online users \n");
+        printf("\t'groups/' to display the availabe groups\n");
+        printf("\t'new/' to create a new group\n");
+        printf("\t'change/' to change group\n");
+        printf("\t'change/@username/' if you want to start a private chat with someone\n ");
+        printf("\t'delgroup/@groupname' if you are the admin of the group and you want to delete it\n\n");
+
         //REGISTRATION 
         printf("Type:\n (1) for Registration to the chat\n (2) for Log in\n");
         while (1)
@@ -88,7 +99,6 @@ int main(int argc, char const *argv[]){
             }
             else{
                 printf("You need to enter 1 or 2 , try agian please \n");
-                continue;
             }
         }
         while(1){
@@ -188,10 +198,16 @@ int main(int argc, char const *argv[]){
         
     while (1)
     {
-        
-
-        printf(": ");
         fgets(send_buffer,1024,stdin);
+        fflush(stdin);
+        if(!strcmp(send_buffer,"new/")){
+            printf("--CREATION OF GROUP--\n");
+            printf("Name of the group:");
+            fgets(new_group_name,20,stdin);
+            fflush(stdin);
+            sprintf(read_buffer,sizeof(read_buffer), "%s/%s/",read_buffer,new_group_name);
+        }
+
         send(client_socket, &send_buffer,strlen(send_buffer),0);
         fflush(stdin);
         memset(send_buffer,0,sizeof(send_buffer));
