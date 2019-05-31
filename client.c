@@ -136,16 +136,24 @@ int main(int argc, char const *argv[]){
 
         //REGISTRATION 
         printf("Type:\n (1) for Registration to the chat\n (2) for Log in\n");
+        char *p;
+        int temp[10];
         while (1)
         {
-            scanf("%d",&log_reg);
-            fflush(stdout);
-            fflush(stdin);
-            if(log_reg == 1 || log_reg ==2){
-                break;
-            }
+            fgets(temp, sizeof(temp), stdin);
+
+            log_reg = strtol(temp, &p, 10);
+            if (p == temp || *p != '\n') {
+                printf("You need to enter 1 or 2 , try again please \n");
+            } 
             else{
-                printf("You need to enter 1 or 2 , try agian please \n");
+                //scanf("%d",&log_reg);
+                //fflush(stdout);
+                //fflush(stdin);
+                if(log_reg == 1 || log_reg ==2){
+                    break;
+                }
+
             }
         }
         while(1){
@@ -219,6 +227,7 @@ int main(int argc, char const *argv[]){
 
                 //Waiting for server answer
                 if(read(client_socket, read_buffer, 1024) > 0){
+                    //printf("[DEBUG] answer is %s\n",read_buffer);
                     if (!(strcmp(read_buffer, "3")))
                     {
                         printf(GREEN "[+] Logged in!\n" RESET);

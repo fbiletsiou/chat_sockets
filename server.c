@@ -220,7 +220,7 @@ while (TRUE)
                 char delim[] = "/";
            	    char *ptr = strtok(read_buffer, delim);
                 int a=0;
-                printf("[DEBUG]PTR IS %s\n",ptr);
+                //printf("[DEBUG]PTR IS %s\n",ptr);
                 if(!strcmp(ptr,"reg")){
                     //registration
                     if(users_reg_now == 30){
@@ -297,10 +297,10 @@ while (TRUE)
                         }
                         else if(a==2){
                             //password
-                            printf("[DEBUG] Username %s, pass %s \n",log_username,ptr);
+                            //printf("[DEBUG] Username %s, pass %s \n",log_username,ptr);
                             for(y=0; y<MAX_USERS; y++){
                                 if(!strcmp(users[y].password,ptr) && !strcmp(users[y].username,log_username)){
-                                    printf("[DEBUG] ARIBA\n");
+                                    //printf("[DEBUG] ARIBA\n");
                                     flag_logged =TRUE;
                                     users[y].logged=1;
                                     break;
@@ -412,7 +412,7 @@ while (TRUE)
                     while (ptr != NULL)
                     {
                         if(a==1){
-                            printf("[DEBUG] MOving to group %s\n",ptr);
+                            //printf("[DEBUG] MOving to group %s\n",ptr);
                             for (y=0; y<MAX_GROUPS; y++){
                                 if(!strcmp(groups[y].name,ptr)){ //Finding the wanted group
                                     group_found=TRUE;
@@ -454,7 +454,7 @@ while (TRUE)
                     while (ptr != NULL)
                     {
                         if(a==1){
-                            printf("[DEBUG] deleting group %s\n",ptr);
+                            //printf("[DEBUG] deleting group %s\n",ptr);
                             group_found=FALSE;
                             for (y=0; y<MAX_GROUPS; y++){
                                 if(!strcmp(groups[y].name,ptr)){ //Finding the wanted group
@@ -511,7 +511,7 @@ while (TRUE)
                     while (ptr != NULL)
                     {
                         if(a==1){
-                            printf("[DEBUG] private to %s\n",ptr);
+                            //printf("[DEBUG] private to %s\n",ptr);
                             not_online = FALSE;
                             for(y=0; y<MAX_USERS; y++){
                                 if(!strcmp(ptr, users[y].username)){
@@ -530,7 +530,7 @@ while (TRUE)
                         }
                         else if (a==2)
                         {
-                            printf("[DEBUG] private msg %s\n",ptr);
+                            //printf("[DEBUG] private msg %s\n",ptr);
                             snprintf(read_buffer,sizeof(read_buffer),"%d>%s>",users[y].id,ptr);
                             private=TRUE;
                         }
@@ -562,7 +562,7 @@ while (TRUE)
                 else{ //Simple message
                     for(j=0; j<MAX_USERS; j++){
                         if(client_sock[j] != 0){
-                            printf("[DEBUG] sender %d , receiver %d \n",sd,client_sock[j]);
+                            //printf("[DEBUG] sender %d , receiver %d \n",sd,client_sock[j]);
                             if(client_sock[j] != sd){
                                 if(private){ //PRIVATE MESSAGE
                                     char *pri = strtok(read_buffer, ">");
@@ -584,7 +584,7 @@ while (TRUE)
                                             snprintf(message, sizeof(message),"[%s (dm)] %s",sender,pri);
                                             send(receiver, message, strlen(message), 0);    
                                             private=FALSE;
-                                            printf("[DEBUG] message is %s\n",message);
+                                            //printf("[DEBUG] message is %s\n",message);
                                         }
                                         else if(b > 1){
                                             printf("!!!\n");
@@ -600,7 +600,7 @@ while (TRUE)
                                     break;                    
                                }
                                 else{
-                                    printf("[DEBUG] message is %s\n",message);
+                                    //printf("[DEBUG] message is %s\n",message);
 
                                     //finding the name of the sender
                                     for(y=0; y<MAX_USERS; y++){
@@ -618,7 +618,7 @@ while (TRUE)
                                     }  
                                     if(users[l].current_group == users[y].current_group){
                                         snprintf(message,sizeof(message),"||%s||%s%s%s",groups[k].name,users[y].username, " > ",read_buffer);
-                                        printf("[DEBUG] Sending to user %d --> %s \n",j,message);
+                                        //printf("[DEBUG] Sending to user %d --> %s \n",j,message);
                                         send(client_sock[j], message, strlen(message), 0);    
                                     }
 
