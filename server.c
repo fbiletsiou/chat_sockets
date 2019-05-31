@@ -35,7 +35,7 @@ int num_of_groups=0;
 int group_found =FALSE;
 int not_online=FALSE;
 int private = FALSE;
-int private_err = -1;
+int user_found = FALSE;
 
 typedef struct group
 {
@@ -464,7 +464,7 @@ while (TRUE)
                                         for(k=0; k<MAX_USERS; k++){//if a user is at the group now
                                             if(users[k].current_group == groups[y].id){
                                                 users[k].current_group = 999; //back in the general
-                                                send(users[k].id,"BG", strlen("BG"),0);
+                                                //send(users[k].id,"BG", strlen("BG"),0);
                                             }
                                         }
                                         groups[y].id = -1;
@@ -515,7 +515,7 @@ while (TRUE)
                             not_online = FALSE;
                             for(y=0; y<MAX_USERS; y++){
                                 if(!strcmp(ptr, users[y].username)){
-                                    private_err = FALSE;
+                                    user_found = TRUE;
                                     if(users[y].logged != 1){
                                         not_online = TRUE;
                                         break;
@@ -523,7 +523,7 @@ while (TRUE)
                                     break;
                                 }
                             }
-                            if(private_err == -1 || not_online){
+                            if(user_found == FALSE || not_online){
                                 //if the username is wrong or the user in not online
                                 break;
                             }
@@ -546,9 +546,9 @@ while (TRUE)
                         send(sd,"LO", strlen("LO"),0);
                         flag_no_message=TRUE;
                     }
-                    else if(private_err == -1){
-                        send(sd,"WU", strlen("WU"),0);
-                        private_err = -1;
+                    else if(!user_found){
+                        send(sd, "WU", strlen("WU"),0);
+                        user_found = FALSE;
                         flag_no_message=TRUE;
                     }
                                     

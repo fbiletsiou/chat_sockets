@@ -42,9 +42,6 @@ void *readFromServer(void *arg){
             else if(!strcmp(read_buffer,"NF")){
                 printf(RED "[-] Group not found" RESET "\n");
             }
-            else if(!strcmp(read_buffer,"DE")){
-                printf(GREEN "[+] Deleted Group" RESET "\n");
-            }
             else if(!strcmp(read_buffer,"BG")){
                 printf(GREEN "[+] The group you were was deleted by it's admin, you are now in 'General'" RESET "\n");
             }
