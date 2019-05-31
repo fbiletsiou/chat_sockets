@@ -29,9 +29,13 @@ char read_buffer[1024] = {0};
 char message[1024] = {};
 int flag_no_message = FALSE;
 int flag_logged = FALSE;
+int flag_deleted = FALSE;
 char log_username[10];
 int num_of_groups=0;
 int group_found =FALSE;
+int not_online=FALSE;
+int private = FALSE;
+int private_err = -1;
 
 typedef struct group
 {
@@ -63,7 +67,6 @@ typedef struct user
     int id;
     int logged;
     int friends[MAX_USERS];
-    int my_groups[MAX_GROUPS];
     int current_group;
 }u;
 struct user users[MAX_USERS];
@@ -217,7 +220,7 @@ while (TRUE)
                 char delim[] = "/";
            	    char *ptr = strtok(read_buffer, delim);
                 int a=0;
-                printf("PTR IS %s\n",ptr);
+                printf("[DEBUG]PTR IS %s\n",ptr);
                 if(!strcmp(ptr,"reg")){
                     //registration
                     if(users_reg_now == 30){
@@ -242,7 +245,7 @@ while (TRUE)
                                 //password
                                 strcpy(users[y].password,ptr);
                                 users[y].id = sd;
-                                users[y].my_groups[0]= groups[0].id; //Everyone is in the general group
+                                users[y].current_group = 999;
                                 for(k=0; k<MAX_USERS; k++){
                                     if (groups[0].users[k] == -1)
                                     {
@@ -294,10 +297,10 @@ while (TRUE)
                         }
                         else if(a==2){
                             //password
-                            printf("Username %s, pass %s \n",log_username,ptr);
+                            printf("[DEBUG] Username %s, pass %s \n",log_username,ptr);
                             for(y=0; y<MAX_USERS; y++){
                                 if(!strcmp(users[y].password,ptr) && !strcmp(users[y].username,log_username)){
-                                    printf("ARIBA\n");
+                                    printf("[DEBUG] ARIBA\n");
                                     flag_logged =TRUE;
                                     users[y].logged=1;
                                     break;
@@ -446,6 +449,110 @@ while (TRUE)
                     memset(read_buffer,0,sizeof(read_buffer));
                     
                 }
+                else if (!strcmp(ptr, "delgroup"))
+                {
+                    while (ptr != NULL)
+                    {
+                        if(a==1){
+                            printf("[DEBUG] deleting group %s\n",ptr);
+                            group_found=FALSE;
+                            for (y=0; y<MAX_GROUPS; y++){
+                                if(!strcmp(groups[y].name,ptr)){ //Finding the wanted group
+                                    group_found=TRUE;
+                                    if(groups[y].group_admin == sd){
+                                        //Deleting the group
+                                        for(k=0; k<MAX_USERS; k++){//if a user is at the group now
+                                            if(users[k].current_group == groups[y].id){
+                                                users[k].current_group = 999; //back in the general
+                                                send(users[k].id,"BG", strlen("BG"),0);
+                                            }
+                                        }
+                                        groups[y].id = -1;
+                                        groups[y].group_admin = -1;
+                                        strcpy(groups[y].name,"");
+                                        for(k=0; k<50; k++){
+                                            groups[y].users[k] =-1;
+                                        }
+                                        flag_deleted = TRUE;
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                        else if (a>1) {
+                            break;
+                        }
+                            
+                        ptr = strtok(NULL, delim);
+                        a++;
+                    }
+                    if(flag_deleted){
+                        send(sd,"DE", strlen("DE"),0);
+                        group_found=FALSE; 
+                        flag_deleted = FALSE;                    
+                        flag_no_message=TRUE;
+                    }
+                    else if(!group_found){
+                        send(sd,"NF", strlen("NF"),0);
+                        flag_no_message=TRUE;
+                    }
+                    else if(!flag_deleted){
+                        send(sd,"NR", strlen("NR"),0);
+                        group_found=FALSE; 
+                        flag_deleted = FALSE;
+                        flag_no_message=TRUE;
+                    }
+                                        
+                    memset(read_buffer,0,sizeof(read_buffer));
+                    
+                }
+                else if (!strcmp(ptr, "private"))
+                {
+                    while (ptr != NULL)
+                    {
+                        if(a==1){
+                            printf("[DEBUG] private to %s\n",ptr);
+                            not_online = FALSE;
+                            for(y=0; y<MAX_USERS; y++){
+                                if(!strcmp(ptr, users[y].username)){
+                                    private_err = FALSE;
+                                    if(users[y].logged != 1){
+                                        not_online = TRUE;
+                                        break;
+                                    }
+                                    break;
+                                }
+                            }
+                            if(private_err == -1 || not_online){
+                                //if the username is wrong or the user in not online
+                                break;
+                            }
+                        }
+                        else if (a==2)
+                        {
+                            printf("[DEBUG] private msg %s\n",ptr);
+                            snprintf(read_buffer,sizeof(read_buffer),"%d>%s>",users[y].id,ptr);
+                            private=TRUE;
+                        }
+                        
+                        else if (a>2) {
+                            break;
+                        }
+                            
+                        ptr = strtok(NULL, delim);
+                        a++;
+                    }
+                    if(not_online){
+                        send(sd,"LO", strlen("LO"),0);
+                        flag_no_message=TRUE;
+                    }
+                    else if(private_err == -1){
+                        send(sd,"WU", strlen("WU"),0);
+                        private_err = -1;
+                        flag_no_message=TRUE;
+                    }
+                                    
+                }
                 
                 
 
@@ -455,27 +562,68 @@ while (TRUE)
                 else{ //Simple message
                     for(j=0; j<MAX_USERS; j++){
                         if(client_sock[j] != 0){
-                            printf("sender %d , receiver %d \n",sd,client_sock[j]);
+                            printf("[DEBUG] sender %d , receiver %d \n",sd,client_sock[j]);
                             if(client_sock[j] != sd){
-                                //finding the name of the sender
-                                for(y=0; y<MAX_USERS; y++){
-                                    if(users[y].id == sd){ //SENDER id , group
-                                        for(k=0; k<MAX_GROUPS; k++){
-                                            if(users[y].current_group == groups[k].id)
-                                                break;
+                                if(private){ //PRIVATE MESSAGE
+                                    char *pri = strtok(read_buffer, ">");
+                                    int b =0;
+                                    char sender[10];
+                                    int receiver = -1;
+                                    while(pri != NULL){
+                                        if(b==0){ //receiver
+                                            for(y=0; y<MAX_USERS; y++){
+                                                if(atoi(pri) == users[y].id){
+                                                    receiver=users[y].id;
+                                                }
+                                                if(sd == users[y].id){
+                                                    strcpy(sender,users[y].username);
+                                                }
+                                            }
                                         }
-                                        break;
+                                        else if(b == 1){
+                                            snprintf(message, sizeof(message),"[%s (dm)] %s",sender,pri);
+                                            send(receiver, message, strlen(message), 0);    
+                                            private=FALSE;
+                                            printf("[DEBUG] message is %s\n",message);
+                                        }
+                                        else if(b > 1){
+                                            printf("!!!\n");
+                                            break;
+                                        }
+                                        
+                                        pri = strtok(NULL, ">");
+                                        b++;
                                     }
+                                    memset(sender,0,sizeof(sender));   
+                                    memset(message,0,sizeof(message));
+                                    memset(read_buffer,0,sizeof(read_buffer));
+                                    break;                    
+                               }
+                                else{
+                                    printf("[DEBUG] message is %s\n",message);
+
+                                    //finding the name of the sender
+                                    for(y=0; y<MAX_USERS; y++){
+                                        if(users[y].id == sd){ //SENDER id , group
+                                            for(k=0; k<MAX_GROUPS; k++){
+                                                if(users[y].current_group == groups[k].id)
+                                                    break;
+                                            }
+                                            break;
+                                        }
+                                    }
+                                    for(l=0; l<MAX_USERS;l++){
+                                        if(users[l].id == client_sock[j]) //RECEIVER id
+                                            break;
+                                    }  
+                                    if(users[l].current_group == users[y].current_group){
+                                        snprintf(message,sizeof(message),"||%s||%s%s%s",groups[k].name,users[y].username, " > ",read_buffer);
+                                        printf("[DEBUG] Sending to user %d --> %s \n",j,message);
+                                        send(client_sock[j], message, strlen(message), 0);    
+                                    }
+
                                 }
-                                for(l=0; l<MAX_USERS;l++){
-                                    if(users[l].id == client_sock[j]) //RECEIVER id
-                                        break;
-                                }
-                                if(users[l].current_group == users[y].current_group){
-                                    snprintf(message,sizeof(message),"||%s||%s%s%s",groups[k].name,users[y].username, " > ",read_buffer);
-                                    printf("Sending to user %d --> %s \n",j,message);
-                                    send(client_sock[j], message, strlen(message), 0);    
-                                }
+                            
                             }
                             
                         }
